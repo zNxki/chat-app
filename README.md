@@ -1,75 +1,93 @@
 # Chat App
 
-Applicazione di chat in tempo reale con architettura a tre livelli:
-**PHP REST API** → **TypeScript Middleware** → **Frontend HTML nativo**
+A full-stack real-time chat application built with **PHP** (REST API), **TypeScript/Node.js** (middleware + WebSocket), and **vanilla HTML/CSS/JS** (frontend).
 
 ---
 
-## Struttura del progetto
+## Architecture
+
+```
+Browser (HTML/JS)
+    ↓ HTTP + WebSocket
+TypeScript Middleware (Express — port 3000 / WS port 3001)
+    ↓ HTTP
+PHP REST API (port 8080)
+    ↓
+SQLite Database
+```
+
+| Layer | Technology | Responsibility |
+|---|---|---|
+| Frontend | HTML, CSS, JS | UI, WebSocket client, Markdown rendering |
+| Middleware | TypeScript + Express | Validation, caching, moderation, WebSocket broadcasting, logging |
+| API | PHP 8.1+ | REST endpoints, JWT auth, rate limiting, SQLite |
+| Database | SQLite | Users, rooms, messages, reactions, rate limits |
+
+---
+
+## Project Structure
 
 ```
 chat-app/
 ├── backend/
-│   ├── php-api/                  ← REST API in PHP 8.1+
+│   ├── php-api/
 │   │   ├── composer.json
-│   │   ├── index.php             ← entry point / router
+│   │   ├── index.php                  # Router / entry point
 │   │   └── src/
-│   │       ├── Database/
-│   │       │   └── Database.php  ← SQLite singleton + migrazioni
-│   │       ├── Models/
-│   │       │   ├── User.php
-│   │       │   ├── Message.php
-│   │       │   ├── Room.php
-│   │       │   └── Reaction.php
-│   │       ├── Services/
-│   │       │   ├── AuthService.php   ← JWT register/login
-│   │       │   └── RateLimiter.php   ← max 10 msg/minuto per utente
+│   │       ├── Database.php           # PDO singleton + migrations
 │   │       ├── Middleware/
-│   │       │   └── JwtMiddleware.php ← verifica Bearer token
-│   │       └── Controllers/
-│   │           ├── AuthController.php
-│   │           ├── MessageController.php
-│   │           ├── RoomController.php
-│   │           └── ReactionController.php
+│   │       │   └── JwtMiddleware.php  # JWT verification on protected routes
+│   │       ├── Models/
+│   │       │   ├── Message.php
+│   │       │   ├── Reaction.php
+│   │       │   ├── Room.php
+│   │       │   └── User.php
+│   │       ├── Controllers/
+│   │       │   ├── AuthController.php
+│   │       │   ├── MessageController.php
+│   │       │   ├── ReactionController.php
+│   │       │   └── RoomController.php
+│   │       └── Services/
+│   │           ├── AuthService.php    # JWT generation + bcrypt
+│   │           └── RateLimiter.php    # Per-user per-minute limiting
 │   │
-│   ├── ts-middleware/            ← Middleware in TypeScript / Node.js
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── src/
-│   │       ├── server.ts         ← Express server (porta 3000)
-│   │       ├── websocket.ts      ← WebSocket server (porta 3001)
-│   │       ├── cache.ts          ← cache in memoria con TTL
-│   │       ├── logger.ts         ← Winston logger su file + console
-│   │       └── moderation.ts     ← ban utenti, parole vietate, avvisi
-│   │
-│   └── logs/
-│       ├── combined.log
-│       └── error.log
+│   └── ts-middleware/
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── src/
+│           ├── server.ts              # Express app + route forwarding
+│           ├── websocket.ts           # WS server + room broadcasting
+│           ├── cache.ts               # In-memory TTL cache
+│           ├── moderation.ts          # Ban system + word filter
+│           └── logger.ts              # Winston file + console logger
 │
 └── frontend/
-    ├── index.html                ← HTML nativo
-    ├── style.css                 ← tema dark/light con CSS variables
-    └── script.js                 ← WebSocket client, Markdown, auth
+    ├── index.html
+    ├── style.css
+    └── script.js
 ```
 
 ---
 
-## Stack tecnico
+## Features
 
-| Layer | Tecnologia |
-|---|---|
-| REST API | PHP 8.1+, PDO, SQLite |
-| Autenticazione | JWT (`firebase/php-jwt`) |
-| Middleware | TypeScript, Node.js, Express |
-| Real-time | WebSocket (`ws`) |
-| Logging | Winston |
-| Cache | In-memory con TTL |
-| Frontend | HTML, CSS, JS nativi |
-| Markdown | `marked.js` (CDN) |
+- **JWT authentication** — register/login, token stored in localStorage
+- **Multiple rooms/channels** — create and switch between channels
+- **Real-time messaging** — WebSocket push, no page refresh needed
+- **Markdown support** — `**bold**`, `*italic*`, `` `code` ``, `~~strikethrough~~`
+- **Message reactions** — 👍 ❤️ 😂 😮 😢 🔥 toggle reactions on any message
+- **Rate limiting** — max 10 messages per user per minute (PHP-side)
+- **Moderation** — ban/unban users, word filter with 3-strike system (TS-side)
+- **In-memory cache** — message responses cached with 2s TTL to reduce PHP load
+- **Winston logging** — all requests logged to `logs/combined.log` and `logs/error.log`
+- **Online users list** — sidebar shows who is currently connected per room
+- **Dark/light theme** — toggle via button in header
+- **Notification sound** — Web Audio API beep on new messages from others
+- **Delete own messages** — hover a message to reveal the delete button
 
 ---
 
-## Prerequisiti
+## Requirements
 
 - PHP 8.1+
 - Composer
@@ -78,13 +96,15 @@ chat-app/
 
 ---
 
-## Installazione
+## Setup & Running
 
 ### 1. PHP API
 
 ```bash
 cd backend/php-api
 composer install
+composer dump-autoload
+php -S localhost:8080 index.php
 ```
 
 ### 2. TypeScript Middleware
@@ -92,94 +112,93 @@ composer install
 ```bash
 cd backend/ts-middleware
 npm install
+npx ts-node src/server.ts
 ```
 
----
-
-## Avvio
-
-Apri **tre terminali** dalla root del progetto.
+### 3. Frontend
 
 ```bash
-# Terminale 1 — PHP API (porta 8080)
-cd backend/php-api
-php -S localhost:8080 index.php
-
-# Terminale 2 — TypeScript Middleware (porta 3000 + WS 3001)
-cd backend/ts-middleware
-npx ts-node src/server.ts
-
-# Terminale 3 — Frontend (porta 5500)
 cd frontend
 php -S localhost:5500
 ```
 
-Apri il browser su **http://localhost:5500**
+Then open **http://localhost:5500** in your browser.
+
+> All three servers must be running at the same time.
 
 ---
 
 ## API Reference
 
+All requests go through the middleware at `http://localhost:3000`.
+
 ### Auth
 
-| Metodo | Endpoint | Body | Auth |
-|---|---|---|---|
-| POST | `/auth/register` | `{ username, password, color }` | No |
-| POST | `/auth/login` | `{ username, password }` | No |
+| Method | Endpoint | Auth | Body | Description |
+|---|---|---|---|---|
+| POST | `/auth/register` | — | `{ username, password, color }` | Register new user |
+| POST | `/auth/login` | — | `{ username, password }` | Login, returns JWT |
 
 ### Rooms
 
-| Metodo | Endpoint | Auth |
-|---|---|---|
-| GET | `/rooms` | No |
-| POST | `/rooms` | JWT |
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | `/rooms` | — | List all rooms |
+| POST | `/rooms` | JWT | Create a new room |
 
 ### Messages
 
-| Metodo | Endpoint | Auth |
-|---|---|---|
-| GET | `/messages?room=1` | No |
-| POST | `/messages` | JWT |
-| DELETE | `/messages/:id` | JWT |
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | `/messages?room=1` | — | Get messages in a room |
+| POST | `/messages` | JWT | Send a message |
+| DELETE | `/messages/:id` | JWT | Delete own message |
 
 ### Reactions
 
-| Metodo | Endpoint | Body | Auth |
+| Method | Endpoint | Auth | Body | Description |
+|---|---|---|---|---|
+| POST | `/reactions/:messageId` | JWT | `{ emoji, room }` | Toggle a reaction |
+
+### Moderation
+
+| Method | Endpoint | Body | Description |
 |---|---|---|---|
-| POST | `/reactions/:messageId` | `{ emoji }` | JWT |
+| POST | `/mod/ban` | `{ username }` | Ban a user |
+| POST | `/mod/unban` | `{ username }` | Unban a user |
+| GET | `/mod/banned` | — | List banned users |
 
-### Moderazione
+### Online Users
 
-| Metodo | Endpoint | Body |
+| Method | Endpoint | Description |
 |---|---|---|
-| POST | `/mod/ban` | `{ username }` |
-| POST | `/mod/unban` | `{ username }` |
-| GET | `/mod/banned` | — |
+| GET | `/online?room=1` | Get online users in a room |
 
 ---
 
-## Funzionalità
+## WebSocket
 
-- Registrazione e login con JWT (scadenza 7 giorni)
-- Stanze/canali multipli
-- Messaggi in tempo reale via WebSocket
-- Markdown nei messaggi (`**grassetto**`, `*corsivo*`, `` `codice` ``)
-- Reazioni ai messaggi con emoji (👍 ❤️ 😂 😮 😢 🔥)
-- Rate limiting (max 10 messaggi al minuto per utente)
-- Sistema di moderazione con avvisi e ban automatico
-- Cache in memoria per ridurre le chiamate a PHP
-- Logging su file con Winston
-- Lista utenti online per stanza
-- Notifica sonora per nuovi messaggi
-- Tema dark/light
-- Auto-resize della textarea
+Connect to `ws://localhost:3001`.
+
+**Join a room:**
+```json
+{ "type": "join", "username": "znxki", "color": "#e8c547", "room": 1 }
+```
+
+**Incoming events:**
+
+| Type | Payload | Description |
+|---|---|---|
+| `message` | `{ message: {...} }` | New message in the room |
+| `delete` | `{ id: number }` | Message deleted |
+| `reaction` | `{ messageId: number }` | Reaction toggled |
+| `online` | `{ users: string[] }` | Updated online user list |
 
 ---
 
-## Note di sviluppo
+## Environment Notes
 
-Il database SQLite viene creato automaticamente al primo avvio in `backend/php-api/chat.db`.
-
-La chiave JWT in `AuthService.php` deve essere sostituita con una stringa sicura di almeno 32 caratteri in produzione.
-
-Il middleware TypeScript non espone mai direttamente la PHP API — tutto il traffico dal frontend passa per la porta 3000.
+- The SQLite database `chat.db` is auto-created in `backend/php-api/` on first run.
+- Logs are written to `logs/combined.log` and `logs/error.log` (created automatically).
+- The JWT secret is hardcoded in `AuthService.php` — change it before any real deployment.
+- Rate limiting resets every minute, stored in the `rate_limits` SQLite table.
