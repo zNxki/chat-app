@@ -1,0 +1,17 @@
+{
+    "name": "znxki/php-api",
+    "authors": [
+        {
+            "name": "znxki"
+        }
+    ],
+    "require": {
+        "ext-pdo": "*",
+        "firebase/php-jwt": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Api\\": "src/"
+        }
+    }
+}

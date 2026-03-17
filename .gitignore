@@ -1,0 +1,16 @@
+logs/
+vendor/
+node_modules/
+.idea/
+.vscode/
+dist/
+build/
+
+package-lock.json
+*.lock
+*.log
+*.db
+*.db-shm
+*.db-wal
+.env
+.DS_STORE
